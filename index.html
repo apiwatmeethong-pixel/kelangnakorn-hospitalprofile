@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hospital Profile - เขลางค์นคร</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+  <div class="sidebar d-flex flex-column" id="sidebar">
+    <div class="text-center mb-4 px-3 position-relative">
+      <button class="btn btn-sm position-absolute top-0 end-0 me-2 d-md-none text-muted" onclick="toggleSidebar()"><i class="bi bi-x-lg"></i></button>
+      <img src="https://lh3.googleusercontent.com/d/1nT4I_XyBwaClH6GMqc7Z5ma9ieY7polz" alt="Logo" class="mx-auto mb-3 d-block" style="width: 70px; height: 70px; object-fit: contain; border-radius: 50%;">
+      <h6 class="fw-bold text-primary mb-0">Hospital Profile</h6>
+      <small class="text-muted">กองสาธารณสุขและสิ่งแวดล้อม<br>เทศบาลเมืองเขลางค์นคร</small>
+    </div>
+    <ul class="nav flex-column mt-3">
+      <li class="nav-item">
+        <a class="nav-link active" onclick="switchView('dashboard', this)"><i class="bi bi-grid-fill me-2"></i> ภาพรวม (Dashboard)</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" onclick="switchView('detail', this)"><i class="bi bi-hospital-fill me-2"></i> ข้อมูลรายหน่วยบริการ</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" onclick="switchView('money', this)"><i class="bi bi-cash-coin me-2"></i> ข้อมูลการเงินและงบประมาณ</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" onclick="switchView('ncd', this)"><i class="bi bi-clipboard2-pulse me-2"></i> ข้อมูลโรคเรื้อรัง (NCDs)</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" onclick="switchView('cd', this)"><i class="bi bi-bug-fill me-2"></i> สถานการณ์โรคติดต่อ (CD)</a>
+      </li>
+      
+      <hr class="mx-3 my-2 text-muted">
+      
+      <li class="nav-item" id="menu-login-btn">
+        <a class="nav-link text-warning fw-bold" onclick="checkAuth(this)" style="cursor: pointer;">
+          <i class="bi bi-lock-fill me-2"></i> เข้าสู่ระบบเจ้าหน้าที่
+        </a>
+      </li>
+
+      <li class="nav-item admin-menu" style="display: none;">
+        <a class="nav-link text-primary" onclick="switchView('form', this)" style="cursor: pointer;"><i class="bi bi-pencil-square me-2"></i> ฟอร์มบันทึกข้อมูล</a>
+      </li>
+      <li class="nav-item admin-menu" style="display: none;">
+        <a class="nav-link text-danger" onclick="switchView('manage', this)" style="cursor: pointer;"><i class="bi bi-database-gear me-2"></i> จัดการฐานข้อมูล</a>
+      </li>
+    </ul>
+  </div>
+
+  <div class="main-content" id="mainContent">
+    <div class="d-flex align-items-center mb-4">
+      <button class="btn btn-white shadow-sm border-0 me-3 rounded-3" onclick="toggleSidebar()" style="background-color: #fff; width: 45px; height: 45px;"><i class="bi bi-list fs-4 text-primary"></i></button>
+      <h5 class="fw-bold mb-0 d-md-none text-primary">Hospital Profile</h5>
+    </div>
+    
+    <div id="loading" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div><p class="mt-3 text-muted">กำลังดึงข้อมูลระบบ...</p>
+    </div>
+
+    <div id="view-dashboard" class="view-section">
+	<h4 class="fw-bold mb-4 d-none d-md-block">ภาพรวมศูนย์บริการสาธารณสุข (8 แห่ง)</h4>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="data-card text-center" style="background-color: var(--pastel-blue);">
+      <h6 class="text-muted small">ประชากรรวม</h6>
+      <h3 class="fw-bold mb-0" id="sum-pop" style="color: #1976D2;">0</h3>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="data-card text-center" style="background-color: var(--pastel-orange);">
+      <h6 class="text-muted small">หลังคาเรือนรวม</h6>
+      <h3 class="fw-bold mb-0" id="sum-house" style="color: #F57C00;">0</h3>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="data-card text-center" style="background-color: var(--pastel-green);">
+      <h6 class="text-muted small">อสม. รวม</h6>
+      <h3 class="fw-bold mb-0" id="sum-vhv" style="color: #388E3C;">0</h3>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="data-card text-center" style="background-color: var(--pastel-purple);">
+      <h6 class="text-muted small">บุคลากรรวม</h6>
+      <h3 class="fw-bold mb-0" id="sum-staff" style="color: #7B1FA2;">0</h3>
+    </div>
+  </div>
+</div>
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="data-card">
+      <h6 class="fw-bold mb-3">สัดส่วนประชากรจำแนกตาม ศบส.</h6>
+      <div style="position: relative; height: 300px;"><canvas id="popChart"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="data-card">
+      <h6 class="fw-bold mb-3 text-center">สัดส่วนชาย-หญิง (ภาพรวม)</h6>
+      <div style="position: relative; height: 300px;"><canvas id="genderChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+    <div id="view-detail" class="view-section">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+  <h4 class="fw-bold mb-3 mb-md-0 d-none d-md-block">ข้อมูลเชิงลึกรายหน่วยบริการ</h4>
+  <select id="hos-selector" class="form-select shadow-sm border-0 rounded-3 px-4 py-2 bg-white" onchange="updateDetailView()" style="max-width: 300px;"></select>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="data-card text-center text-md-start">
+      <div class="icon-box bg-pastel-blue mx-auto mx-md-0"><i class="bi bi-people-fill"></i></div>
+      <h6 class="text-muted mb-1 small">ประชากรรวม</h6>
+      <h3 class="fw-bold mb-0" id="detail-pop">0</h3>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="data-card text-center text-md-start">
+      <div class="icon-box bg-pastel-orange mx-auto mx-md-0"><i class="bi bi-house-door-fill"></i></div>
+      <h6 class="text-muted mb-1 small">หลังคาเรือน/ชุมชน</h6>
+      <h3 class="fw-bold mb-0"><span id="detail-house">0</span> <small class="fs-6 fw-normal text-muted d-block d-md-inline">/ <span id="detail-village">0</span></small></h3>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="data-card text-center text-md-start">
+      <div class="icon-box bg-pastel-green mx-auto mx-md-0"><i class="bi bi-heart-pulse-fill"></i></div>
+      <h6 class="text-muted mb-1 small">จำนวน อสม.</h6>
+      <h3 class="fw-bold mb-0" id="detail-vhv">0</h3>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="data-card text-center text-md-start">
+      <div class="icon-box bg-pastel-pink mx-auto mx-md-0"><i class="bi bi-person-badge-fill"></i></div>
+      <h6 class="text-muted mb-1 small">บุคลากร</h6>
+      <h3 class="fw-bold mb-0" id="detail-staff">0</h3>
+    </div>
+  </div>
+</div>
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="data-card h-100">
+      <h6 class="fw-bold mb-4 text-center">สัดส่วนประชากรชาย-หญิง</h6>
+      <div style="position: relative; height: 250px;"><canvas id="detailGenderChart"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="data-card h-100">
+      <h6 class="fw-bold mb-4 text-center">อัตราส่วนการดูแลประชากร</h6>
+      <div style="position: relative; height: 250px;"><canvas id="detailRatioChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+    <div id="view-money" class="view-section">
+      <h4 class="fw-bold mb-4 d-none d-md-block">ข้อมูลการเงินและงบประมาณ</h4>
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-4">
+    <div class="data-card text-center" style="background-color: var(--pastel-blue);">
+      <h6 class="text-muted">งบประมาณจัดสรรทั้งหมด</h6>
+      <h3 class="fw-bold mb-0" id="fin-total-budget" style="color: #1976D2;">0</h3>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="data-card text-center" style="background-color: var(--pastel-orange);">
+      <h6 class="text-muted"> ยอดเบิกจ่ายสะสม</h6>
+      <h3 class="fw-bold mb-0" id="fin-total-spent" style="color: #F57C00;">0</h3>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="data-card text-center" style="background-color: var(--pastel-green);">
+      <h6 class="text-muted">งบประมาณคงเหลือ</h6>
+      <h3 class="fw-bold mb-0" id="fin-total-remain" style="color: #388E3C;">0</h3>
+    </div>
+  </div>
+</div>
+<div class="row g-4">
+  <div class="col-12">
+    <div class="data-card">
+      <h6 class="fw-bold mb-3">เปรียบเทียบงบประมาณและการเบิกจ่ายจริง</h6>
+      <div style="position: relative; height: 350px;"><canvas id="moneyChart"></canvas></div>
+    </div>
+  </div>
+  <div class="col-12">
+    <div class="data-card">
+      <h6 class="fw-bold mb-3">สรุปยอดบัญชีรายหน่วยบริการ</h6>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="min-width: 600px;">
+          <thead class="table-light">
+            <tr>
+              <th>หน่วยบริการ (ศบส.)</th>
+              <th class="text-end">งบประมาณ</th>
+              <th class="text-end">เบิกจ่ายสะสม</th>
+              <th class="text-end">คงเหลือ</th>
+              <th class="text-center">ร้อยละ</th>
+            </tr>
+          </thead>
+          <tbody id="money-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+    <div id="view-ncd" class="view-section">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+  <h4 class="fw-bold mb-3 mb-md-0 d-none d-md-block">รายงานผู้ป่วยโรคเรื้อรัง (NCDs)</h4>
+  <select id="ncd-hos-selector" class="form-select shadow-sm border-0 rounded-3 px-4 py-2 bg-white" onchange="updateNcdView()" style="max-width: 300px;">
+    </select>
+</div>
+
+<div class="row g-3 mb-4" id="ncd-cards-container">
+  </div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="data-card">
+      <h6 class="fw-bold mb-3">เปรียบเทียบผู้ป่วยสะสม (รายเก่า) และ ผู้ป่วยรายใหม่ (เรียงจากมากไปน้อย)</h6>
+      <div style="position: relative; height: 300px;"><canvas id="ncdBarChart"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="data-card">
+      <h6 class="fw-bold mb-3 text-center">สัดส่วนจำแนกตามประเภทโรค</h6>
+      <div style="position: relative; height: 300px;"><canvas id="ncdPieChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="data-card mt-4 border-top border-4 border-info">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-table me-2"></i> แจกแจงผู้ป่วยโรคเรื้อรังรายหน่วยบริการ</h6>
+    <small class="text-muted d-none d-md-block">💡 คลิกที่ชื่อหน่วยบริการในตาราง เพื่อดึงข้อมูลขึ้นกราฟ</small>
+  </div>
+  
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover align-middle text-center mb-0" style="font-size: 0.9rem; min-width: 800px;">
+      <thead class="table-light" id="ncd-table-head">
+        </thead>
+      <tbody id="ncd-table-body">
+        </tbody>
+    </table>
+  </div>
+</div>
+
+    <div id="view-cd" class="view-section">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+  <h4 class="fw-bold mb-3 mb-md-0 d-none d-md-block">สถานการณ์โรคติดต่อ (CD)</h4>
+  <select id="cd-hos-selector" class="form-select shadow-sm border-0 rounded-3 px-4 py-2 bg-white" onchange="updateCdView()" style="max-width: 300px;">
+    </select>
+</div>
+
+<div class="row g-3 mb-4" id="cd-cards-container"></div>
+
+<div class="row g-4">
+  <div class="col-lg-12">
+    <div class="data-card">
+      <h6 class="fw-bold mb-3">แนวโน้มการเกิดโรคติดต่อรายเดือน (การเฝ้าระวังทางระบาดวิทยา)</h6>
+      <div style="position: relative; height: 350px;"><canvas id="cdLineChart"></canvas></div>
+    </div>
+  </div>
+  
+  <div class="col-lg-12">
+    <div class="data-card">
+      <h6 class="fw-bold mb-3">จำนวนผู้ป่วยสะสมแยกตามโรค (เรียงจากมากไปน้อย)</h6>
+      <div style="position: relative; height: 300px;"><canvas id="cdBarChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="data-card mt-4 border-top border-4 border-danger">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-table me-2"></i> แจกแจงผู้ป่วยโรคติดต่อรายหน่วยบริการ</h6>
+    <small class="text-muted d-none d-md-block">💡 คลิกที่ชื่อหน่วยบริการในตาราง เพื่อสลับดูแนวโน้มและเส้นกราฟ</small>
+  </div>
+  
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover align-middle text-center mb-0" style="font-size: 0.9rem; min-width: 800px;">
+      <thead class="table-light" id="cd-table-head">
+        </thead>
+      <tbody id="cd-table-body">
+        </tbody>
+    </table>
+  </div>
+</div>
+
+    <div id="view-login" class="view-section">
+      <div class="row mt-5">
+  <div class="col-11 col-md-6 col-lg-4 mx-auto">
+    <div class="data-card text-center border-top border-4 shadow-sm" style="border-color: #FFCA28 !important;">
+      <div class="icon-box mx-auto mb-3" style="background-color: #FFF8E1; color: #FF8F00;">
+        <i class="bi bi-shield-lock-fill"></i>
+      </div>
+      <h5 class="fw-bold text-dark">ระบบเฉพาะเจ้าหน้าที่</h5>
+      <p class="text-muted small mb-4">ฟอร์มบันทึกข้อมูลถูกล็อคไว้เพื่อความปลอดภัย<br>กรุณาระบุรหัสผ่านเพื่อเข้าใช้งาน</p>
+      
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="mb-3">
+          <input type="password" class="form-control form-control-lg text-center bg-light border-0" id="admin-pin" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn w-100 rounded-pill fw-bold text-white shadow-sm" id="btn-login" style="background-color: #FFB300;">
+          <i class="bi bi-unlock-fill me-2"></i> ปลดล็อคระบบ
+        </button>
+      </form>
+      
+      <div id="login-alert" class="alert mt-3 py-2" style="display:none; font-size: 0.9rem;"></div>
+    </div>
+  </div>
+</div>
+
+    <div id="view-form" class="view-section">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+  <h4 class="fw-bold mb-3 mb-md-0 d-none d-md-block">ฟอร์มบันทึกข้อมูลเข้าสู่ระบบ</h4>
+</div>
+
+<div class="row">
+  <div class="col-lg-8 col-xl-6 mx-auto">
+    <div class="data-card border-top border-4 border-primary">
+      <div class="text-center mb-4">
+        <div class="icon-box bg-pastel-blue mx-auto"><i class="bi bi-shield-check"></i></div>
+        <h5 class="fw-bold">เพิ่มข้อมูลใหม่</h5>
+        <small class="text-muted">ระบบจะตรวจสอบความถูกต้องของข้อมูลก่อนบันทึกเสมอ</small>
+      </div>
+
+      <form id="dataForm" class="needs-validation" novalidate onsubmit="handleFormSubmit(event)">
+        
+        <div class="mb-3">
+          <label class="form-label fw-bold text-muted small">1. เลือกฐานข้อมูลที่ต้องการบันทึก</label>
+          <select class="form-select bg-light border-0" id="select-sheet" onchange="toggleFormFields()" required>
+            <option value="" selected disabled>-- กรุณาเลือกฐานข้อมูล --</option>
+            <option value="money">ข้อมูลการเงิน (Money)</option>
+            <option value="ncd">ข้อมูลโรคเรื้อรัง (NCD)</option>
+            <option value="cd">ข้อมูลโรคติดต่อ (CD)</option>
+          </select>
+          <div class="invalid-feedback">กรุณาเลือกฐานข้อมูลเป้าหมาย</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold text-muted small">2. หน่วยบริการ (ศบส.)</label>
+          <select class="form-select bg-light border-0" id="input-hos" required>
+            <option value="" selected disabled>-- เลือกหน่วยบริการ --</option>
+          </select>
+          <div class="invalid-feedback">กรุณาเลือกหน่วยบริการ</div>
+        </div>
+
+        <div id="dynamic-zone" style="display: none; background-color: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 15px;">
+          
+          <div class="mb-3">
+            <label class="form-label fw-bold text-primary small" id="label-item">รายการ / ชื่อโรค</label>
+            <select class="form-select border-0 shadow-sm" id="input-item" required>
+              </select>
+            <div class="invalid-feedback" id="feedback-item">กรุณาระบุข้อมูลในส่วนนี้</div>
+          </div>
+
+          <div class="mb-3" id="group-ncd-type" style="display: none;">
+            <label class="form-label fw-bold text-primary small">ประเภทผู้ป่วย</label>
+            <select class="form-select border-0 shadow-sm" id="input-type">
+              <option value="" selected disabled>-- เลือกประเภท --</option>
+              <option value="รายเก่า">รายเก่า (สะสม)</option>
+              <option value="รายใหม่">รายใหม่</option>
+            </select>
+            <div class="invalid-feedback">กรุณาเลือกประเภทผู้ป่วย (รายเก่า/รายใหม่)</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold text-primary small">ประจำเดือน (เดือน/ปี)</label>
+            <input type="month" class="form-control border-0 shadow-sm" id="input-month" required>
+            <div class="invalid-feedback">กรุณาระบุเดือนและปีของข้อมูล</div>
+          </div>
+
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-bold text-muted small">3. จำนวน (ยอดเงิน / จำนวนคน)</label>
+          <input type="number" class="form-control bg-light border-0" id="input-amount" min="0" step="any" placeholder="ระบุตัวเลข" required>
+          <div class="invalid-feedback">กรุณากรอกตัวเลขที่มากกว่าหรือเท่ากับ 0</div>
+        </div>
+
+        <div class="d-grid">
+          <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm" id="btn-submit">
+            <i class="bi bi-save2 me-2"></i> บันทึกข้อมูล
+          </button>
+        </div>
+
+      </form>
+      
+      <div id="alert-message" class="alert mt-4" style="display: none;" role="alert"></div>
+
+    </div>
+  </div>
+</div>
+
+    <div id="view-manage" class="view-section">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+  <h4 class="fw-bold mb-3 mb-md-0 d-none d-md-block">ระบบจัดการฐานข้อมูล (Admin)</h4>
+  
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <div class="d-flex align-items-center">
+      <label class="me-2 fw-bold text-muted small text-nowrap">ฐานข้อมูล:</label>
+      <select id="manage-sheet-selector" class="form-select shadow-sm border-0 rounded-3 px-3 py-2 bg-white" onchange="resetManagePageAndRender()">
+        <option value="money">ข้อมูลการเงิน (Money)</option>
+        <option value="ncd">ข้อมูลโรคเรื้อรัง (NCDs)</option>
+        <option value="cd">ข้อมูลโรคติดต่อ (CD)</option>
+      </select>
+    </div>
+    
+    <div class="d-flex align-items-center">
+      <label class="me-2 fw-bold text-muted small text-nowrap">หน่วยบริการ:</label>
+      <select id="manage-hos-selector" class="form-select shadow-sm border-0 rounded-3 px-3 py-2 bg-white" onchange="resetManagePageAndRender()">
+        <option value="all">ภาพรวมทุกแห่ง</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="data-card border-top border-4 border-warning">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-table me-2"></i> ข้อมูลในระบบ</h6>
+    <small class="text-danger">* หากบันทึกผิด ให้ลบรายการนั้นทิ้ง แล้วกรอกเข้าไปใหม่</small>
+  </div>
+  
+  <div class="table-responsive">
+    <table class="table table-hover table-bordered align-middle mb-0" style="min-width: 800px; font-size: 0.9rem;">
+      <thead class="table-light text-center" id="manage-table-head">
+        </thead>
+      <tbody id="manage-table-body">
+        </tbody>
+    </table>
+  </div>
+  
+  <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+    <div id="manage-table-info" class="text-muted small">กำลังแสดงข้อมูล 0 ถึง 0 จากทั้งหมด 0 รายการ</div>
+    <nav aria-label="Page navigation">
+      <ul class="pagination pagination-sm mb-0" id="manage-pagination-controls">
+        </ul>
+    </nav>
+  </div>
+</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <script src="script.js"></script>
+</body>
+</html>
