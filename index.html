@@ -300,39 +300,85 @@
 
     <div id="view-form" class="view-section">
       <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
-        <h4 class="fw-bold mb-3 mb-md-0 d-none d-md-block">ฟอร์มบันทึกข้อมูลเข้าสู่ระบบ</h4>
+  <h4 class="fw-bold mb-3 mb-md-0 d-none d-md-block">ฟอร์มบันทึกข้อมูลเข้าสู่ระบบ</h4>
+</div>
+
+<div class="row">
+  <div class="col-lg-8 col-xl-6 mx-auto">
+    <div class="data-card border-top border-4 border-primary">
+      <div class="text-center mb-4">
+        <div class="icon-box bg-pastel-blue mx-auto"><i class="bi bi-shield-check"></i></div>
+        <h5 class="fw-bold">เพิ่มข้อมูลใหม่</h5>
+        <small class="text-muted">ระบบจะตรวจสอบความถูกต้องของข้อมูลก่อนบันทึกเสมอ</small>
       </div>
-      <div class="row">
-        <div class="col-lg-8 col-xl-6 mx-auto">
-          <div class="data-card border-top border-4 border-primary">
-            <div class="text-center mb-4">
-              <div class="icon-box bg-pastel-blue mx-auto"><i class="bi bi-shield-check"></i></div>
-              <h5 class="fw-bold">เพิ่มข้อมูลใหม่</h5>
-              <small class="text-muted">ระบบจะตรวจสอบความถูกต้องของข้อมูลก่อนบันทึกเสมอ</small>
-            </div>
-            <form id="dataForm" class="needs-validation" novalidate onsubmit="handleFormSubmit(event)">
-              <div class="mb-3">
-                <label class="form-label fw-bold text-muted small">1. เลือกฐานข้อมูลที่ต้องการบันทึก</label>
-                <select class="form-select bg-light border-0" id="select-sheet" onchange="toggleFormFields()" required>
-                  <option value="" selected disabled>-- กรุณาเลือกฐานข้อมูล --</option>
-                  <option value="money">ข้อมูลการเงิน (Money)</option>
-                  <option value="ncd">ข้อมูลโรคเรื้อรัง (NCD)</option>
-                  <option value="cd">ข้อมูลโรคติดต่อ (CD)</option>
-                </select>
-                <div class="invalid-feedback">กรุณาเลือกฐานข้อมูลเป้าหมาย</div>
-              </div>
-              <div class="mb-3">
-                <label class="form-label fw-bold text-muted small">2. หน่วยบริการ (ศบส.)</label>
-                <select class="form-select bg-light border-0" id="input-hos" required>
-                  <option value="" selected disabled>-- เลือกหน่วยบริการ --</option>
-                </select>
-                <div class="invalid-feedback">กรุณาเลือกหน่วยบริการ</div>
-              </div>
-              
-              </form>
-          </div>
+
+      <form id="dataForm" class="needs-validation" novalidate onsubmit="handleFormSubmit(event)">
+        
+        <div class="mb-3">
+          <label class="form-label fw-bold text-muted small">1. เลือกฐานข้อมูลที่ต้องการบันทึก</label>
+          <select class="form-select bg-light border-0" id="select-sheet" onchange="toggleFormFields()" required>
+            <option value="" selected disabled>-- กรุณาเลือกฐานข้อมูล --</option>
+            <option value="money">ข้อมูลการเงิน (Money)</option>
+            <option value="ncd">ข้อมูลโรคเรื้อรัง (NCD)</option>
+            <option value="cd">ข้อมูลโรคติดต่อ (CD)</option>
+          </select>
+          <div class="invalid-feedback">กรุณาเลือกฐานข้อมูลเป้าหมาย</div>
         </div>
-      </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold text-muted small">2. หน่วยบริการ (ศบส.)</label>
+          <select class="form-select bg-light border-0" id="input-hos" required>
+            <option value="" selected disabled>-- เลือกหน่วยบริการ --</option>
+          </select>
+          <div class="invalid-feedback">กรุณาเลือกหน่วยบริการ</div>
+        </div>
+
+        <div id="dynamic-zone" style="display: none; background-color: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 15px;">
+          
+          <div class="mb-3">
+            <label class="form-label fw-bold text-primary small" id="label-item">รายการ / ชื่อโรค</label>
+            <select class="form-select border-0 shadow-sm" id="input-item" required>
+              </select>
+            <div class="invalid-feedback" id="feedback-item">กรุณาระบุข้อมูลในส่วนนี้</div>
+          </div>
+
+          <div class="mb-3" id="group-ncd-type" style="display: none;">
+            <label class="form-label fw-bold text-primary small">ประเภทผู้ป่วย</label>
+            <select class="form-select border-0 shadow-sm" id="input-type">
+              <option value="" selected disabled>-- เลือกประเภท --</option>
+              <option value="รายเก่า">รายเก่า (สะสม)</option>
+              <option value="รายใหม่">รายใหม่</option>
+            </select>
+            <div class="invalid-feedback">กรุณาเลือกประเภทผู้ป่วย (รายเก่า/รายใหม่)</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold text-primary small">ประจำเดือน (เดือน/ปี)</label>
+            <input type="month" class="form-control border-0 shadow-sm" id="input-month" required>
+            <div class="invalid-feedback">กรุณาระบุเดือนและปีของข้อมูล</div>
+          </div>
+
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-bold text-muted small">3. จำนวน (ยอดเงิน / จำนวนคน)</label>
+          <input type="number" class="form-control bg-light border-0" id="input-amount" min="0" step="any" placeholder="ระบุตัวเลข" required>
+          <div class="invalid-feedback">กรุณากรอกตัวเลขที่มากกว่าหรือเท่ากับ 0</div>
+        </div>
+
+        <div class="d-grid">
+          <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm" id="btn-submit">
+            <i class="bi bi-save2 me-2"></i> บันทึกข้อมูล
+          </button>
+        </div>
+
+      </form>
+      
+      <div id="alert-message" class="alert mt-4" style="display: none;" role="alert"></div>
+
+    </div>
+  </div>
+</div>
     </div>
 
     <div id="view-manage" class="view-section">
