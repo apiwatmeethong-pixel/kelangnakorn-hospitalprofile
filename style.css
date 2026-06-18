@@ -4,7 +4,17 @@
     --pastel-pink: #FCE4EC; --sidebar-bg: #FFFFFF;
     --bg-main: #F8F9FA;
   }
-  body { font-family: 'Sarabun', sans-serif; background-color: var(--bg-main); color: #495057; }
+  * { box-sizing: border-box; }
+  html { min-height: 100%; }
+  body {
+    min-height: 100vh;
+    margin: 0;
+    overflow-x: hidden;
+    font-family: 'Sarabun', sans-serif;
+    background-color: var(--bg-main);
+    color: #495057;
+  }
+  button, select, a { cursor: pointer; }
   
  .sidebar {
     height: 100vh; 
@@ -20,7 +30,7 @@
     transition: transform 0.3s ease-in-out;
     overflow-y: auto; /* ป้องกันเมนูล้น เปิดให้ใช้เมาส์เลื่อนขึ้นลงได้ */
   }
-  .main-content { margin-left: 260px; padding: 40px; transition: margin-left 0.3s ease-in-out; }
+  .main-content { width: calc(100% - 260px); margin-left: 260px; padding: 40px 40px 0; transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out; }
   
   .nav-link { color: #6c757d; border-radius: 10px; margin: 5px 20px; padding: 12px 20px; cursor: pointer; transition: all 0.3s ease; }
   .nav-link:hover, .nav-link.active { background-color: var(--pastel-blue); color: #0d6efd; font-weight: 500; }
@@ -40,22 +50,22 @@
 
   /* Responsive สำหรับมือถือ */
   .sidebar.collapsed { transform: translateX(-100%); }
-  .main-content.expanded { margin-left: 0; }
+  .main-content.expanded { width: 100%; margin-left: 0; }
   .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1040; backdrop-filter: blur(2px); }
 
   @media (max-width: 768px) {
     .sidebar { transform: translateX(-100%); }
     .sidebar.show { transform: translateX(0); }
-    .main-content { margin-left: 0; padding: 15px; }
+    .main-content, .main-content.expanded { width: 100%; margin-left: 0; padding: 15px 15px 0; }
     .sidebar-overlay.show { display: block; }
     h4 { font-size: 1.25rem; }
     .data-card { padding: 15px; }
     .data-card h3 { font-size: 1.5rem; }
   }
   .footer-copyright{
-    margin-left: 250px;
+    margin: 40px -40px 0;
     text-align: center;
-    padding: 12px;
+    padding: 16px 12px;
     font-size: 13px;
     color: #6c757d;
     border-top: 1px solid #e9ecef;
@@ -64,6 +74,8 @@
 
 @media (max-width: 768px){
     .footer-copyright{
-        margin-left: 0;
+        margin: 30px -15px 0;
     }
 }
+
+canvas { max-width: 100%; }
