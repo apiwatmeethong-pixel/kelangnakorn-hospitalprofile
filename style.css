@@ -48,6 +48,19 @@
   .view-section.active { display: block; animation: fadeIn 0.4s; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+  /* 🎯 เพิ่มเอฟเฟกต์แอนิเมชันสำหรับกล่องรายการประวัติกิจกรรมย้อนหลัง (Log Items) */
+  .log-item-card {
+    transition: all 0.25s ease;
+  }
+  .log-item-card:hover {
+    transform: translateX(4px);
+    border-left: 4px solid #0dcaf0 !important;
+  }
+  @keyframes fadeInSlide {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   /* Responsive สำหรับมือถือ */
   .sidebar.collapsed { transform: translateX(-100%); }
   .main-content.expanded { width: 100%; margin-left: 0; }
