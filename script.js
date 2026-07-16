@@ -1,4 +1,4 @@
-  // วาง URL ของ GAS Web App ที่ลงท้ายด้วย /exec ตรงนี้เพียงจุดเดียว
+// วาง URL ของ GAS Web App ที่ลงท้ายด้วย /exec ตรงนี้เพียงจุดเดียว
   const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwV5_fIjATxieke1ornT-AGfU5bzOEU2dpiChpBK0WkVaoqp3gM7FaDgK94Qi7UWTZb/exec';
   const API_TOKEN_KEY = 'hospitalApiToken';
   const API_USER_KEY = 'hospitalCurrentUser';
@@ -146,20 +146,20 @@
 
   function initApp() {
     try { renderDashboard(hospitalData); } catch(e) { console.error("Dashboard Render Crash:", e); }
-    
+     
     try {
       const selector = document.getElementById('hos-selector');
       const ncdSelector = document.getElementById('ncd-hos-selector');
       const cdSelector = document.getElementById('cd-hos-selector');
       const formSelector = document.getElementById('input-hos'); 
       const manageHosSelector = document.getElementById('manage-hos-selector'); 
-      
+       
       if (selector) selector.innerHTML = ""; 
       if (ncdSelector) ncdSelector.innerHTML = '<option value="all">ภาพรวมทุกแห่ง</option>';
       if (cdSelector) cdSelector.innerHTML = '<option value="all">ภาพรวมทุกแห่ง</option>';
       if (manageHosSelector) manageHosSelector.innerHTML = '<option value="all">ภาพรวมทุกแห่ง</option>'; 
       if (formSelector) formSelector.innerHTML = '<option value="" selected disabled>-- เลือกหน่วยบริการ --</option>';
-      
+       
       if (hospitalData && hospitalData.length > 0) {
         hospitalData.forEach((row, index) => {
           if (selector) {
@@ -167,7 +167,7 @@
             if(row['ศบส.'] === 'ศบส.บ้านโทกหัวช้าง') option.selected = true;
             selector.appendChild(option);
           }
-          
+           
           let hosNameText = row['Hospital'] || row['ศบส.'];
           if (ncdSelector) ncdSelector.appendChild(new Option(row['ศบส.'], hosNameText));
           if (cdSelector) cdSelector.appendChild(new Option(row['ศบส.'], hosNameText));
@@ -176,7 +176,7 @@
         });
       }
     } catch(e) { console.error("Selectors Population Crash:", e); }
-    
+     
     try { renderMoneyView(); } catch(e) { console.error("Money View Crash:", e); }
     try { updateDetailView(); } catch(e) { console.error("Detail View Crash:", e); }
     try { updateNcdView(); } catch(e) { console.error("NCD View Crash:", e); }
@@ -501,7 +501,8 @@
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i> เข้าสู่ระบบ'; }
       if (res && res.success) {
         sessionStorage.setItem(API_TOKEN_KEY, res.token);
-        currentUser = { userType: res.userType, hospitalName: res.hospitalName, hcode: res.hcode };
+        // 🎯 เก็บค่า username เข้าบริบทเซสชัน เพื่อใช้ในการบันทึก Logfile ปลายทาง
+        currentUser = { userType: res.userType, hospitalName: res.hospitalName, hcode: res.hcode, username: username };
         sessionStorage.setItem(API_USER_KEY, JSON.stringify(currentUser));
         isAuthenticated = true; userEl.value = ''; passEl.value = ''; 
         const loginMenuBtn = document.getElementById('menu-login-btn'); if(loginMenuBtn) loginMenuBtn.style.display = 'none';
@@ -590,7 +591,12 @@
     }
 
     try {
-      const res = await apiRequest('saveRecord', { data: formData });
+      // 🎯 แนบบริบทแอดมิน/ชื่อผู้ใช้เพื่อใช้ทำ Logfile ไปปลายทางระบบ API
+      const res = await apiRequest('saveRecord', { 
+        data: formData,
+        username: currentUser ? currentUser.username : '',
+        hospitalName: currentUser ? currentUser.hospitalName : ''
+      });
       if(btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save2 me-2"></i> บันทึกข้อมูล'; }
       
       if(alertBox) {
@@ -644,6 +650,8 @@
     for (let i = startIndex; i < endIndex; i++) {
       let item = filteredData[i]; let row = item.content; let actualRowIndex = item.actualRowIndex;
       let tr = document.createElement('tr'); let tdHTML = ''; headers.forEach(h => tdHTML += `<td class="text-center">${escapeHtml(row[h] || '')}</td>`);
+      
+      // 🎯 [ปุ่มลบเพื่อแก้ไขข้อผิดพลาด]: แสดงผลให้ลบรายการที่กรอกผิดพลาดได้
       tdHTML += `<td class="text-center"><button class="btn btn-sm btn-outline-danger rounded-pill" onclick="deleteRecord('${sheetName}', ${actualRowIndex})"><i class="bi bi-trash3-fill"></i> ลบ</button></td>`;
       tr.innerHTML = tdHTML; tbody.appendChild(tr);
     }
@@ -663,10 +671,32 @@
   function changeManagePage(pageNumber) { manageCurrentPage = pageNumber; renderManageTable(); }
 
   async function deleteRecord(sheetName, rowIndex) {
-    if(!confirm(`คุณแน่ใจหรือไม่ที่จะลบข้อมูลแถวนี้?\n(ข้อมูลจะถูกลบออกจาก Google Sheets ทันที)`)) return;
+    // 🎯 [ตรวจสอบสิทธิ์เจ้าของข้อมูลฝั่งหน้าบ้าน]: ดักจับเช็คความเป็นเจ้าของก่อนยิง API ข้ามศูนย์บริการ
+    if (currentUser && currentUser.userType === 'user') {
+      let rawData = [];
+      if (sheetName === 'money') rawData = moneyData; 
+      else if (sheetName === 'ncd') rawData = ncdData; 
+      else if (sheetName === 'cd') rawData = cdData;
+      
+      let targetRow = rawData.find((row, idx) => (Number(row._rowIndex) || idx + 2) === rowIndex);
+      if (targetRow) {
+        let rowHospital = targetRow['Hospital'] || targetRow['ศบส.'] || '';
+        if (rowHospital.toString().trim() !== currentUser.hospitalName.toString().trim()) {
+          alert('ปฏิเสธการเข้าถึง: คุณสามารถลบได้เฉพาะรายการข้อมูลที่เกิดจากหน่วยงานของคุณเองเท่านั้น');
+          return;
+        }
+      }
+    }
+
+    if(!confirm(`คุณแน่ใจหรือไม่ที่จะลบข้อมูลแถวนี้เพื่อแก้ไขข้อผิดพลาด?\n(ข้อมูลจะถูกลบออกจาก Google Sheets ทันที)`)) return;
     document.body.style.cursor = 'wait';
     try {
-      const res = await apiRequest('deleteRecord', { sheetName, rowIndex });
+      const res = await apiRequest('deleteRecord', { 
+        sheetName, 
+        rowIndex,
+        username: currentUser ? currentUser.username : '',
+        hospitalName: currentUser ? currentUser.hospitalName : ''
+      });
       document.body.style.cursor = 'default'; alert(res.message);
       await loadAllDatabase();
       renderMoneyView(); updateNcdView(); updateCdView(); renderManageTable();
@@ -758,7 +788,11 @@
     }
 
     try {
-      const res = await apiRequest('saveHospitalProfile', { data: formData });
+      const res = await apiRequest('saveHospitalProfile', { 
+        data: formData,
+        username: currentUser ? currentUser.username : '',
+        hospitalName: currentUser ? currentUser.hospitalName : ''
+      });
       if(btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save-fill me-1"></i> บันทึกข้อมูล'; }
       
       if (alertBox) {
@@ -797,4 +831,57 @@
     } catch (e) { console.warn("Reset permissions on logout warning:", e); }
     switchView('dashboard');
     alert("ออกจากระบบเรียบร้อยแล้วครับ");
+  }
+
+  // ===================================================
+  // 🎯 NEW FUNCTION: ระบบแอนิเมชันความเคลื่อนไหว Logfile ตัวใหม่
+  // ===================================================
+  async function loadLogsData() {
+    if (!currentUser) return;
+    const container = document.getElementById('logs-timeline-container');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="text-center p-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span> กำลังดึงประวัติกิจกรรมทางไกล...</div>';
+    
+    try {
+      const res = await apiRequest('getLogs', {
+        userType: currentUser.userType,
+        hospitalName: currentUser.hospitalName
+      }, 'GET');
+      
+      const logs = res.data || [];
+      container.innerHTML = '';
+      
+      if (logs.length === 0) {
+        container.innerHTML = '<div class="text-center p-4 text-muted">ยังไม่มีบันทึกประวัติกิจกรรมในระบบของคุณ</div>';
+        return;
+      }
+      
+      logs.forEach((log, index) => {
+        let badgeClass = 'bg-primary';
+        if (log.Action && log.Action.includes('ลบ')) badgeClass = 'bg-danger';
+        else if (log.Action && (log.Action.includes('แก้ไข') || log.Action.includes('อัปเดต'))) badgeClass = 'bg-warning text-dark';
+        else if (log.Action && log.Action.includes('เข้าสู่ระบบ')) badgeClass = 'bg-success';
+        
+        let delay = (index * 0.05).toFixed(2);
+        let card = document.createElement('div');
+        card.className = 'log-item-card p-3 mb-3 border rounded shadow-sm bg-white';
+        card.style.animation = `fadeInSlide 0.4s ease forwards`;
+        card.style.animationDelay = `${delay}s`;
+        card.style.opacity = '0';
+        
+        card.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap">
+            <span class="badge ${badgeClass} rounded-pill small font-monospace">${escapeHtml(log.Action)}</span>
+            <small class="text-muted font-monospace"><i class="bi bi-clock me-1"></i>${escapeHtml(log.Timestamp)}</small>
+          </div>
+          <div class="small fw-bold text-dark mb-1"><i class="bi bi-hospital me-1 text-primary"></i>หน่วยบริการ: ${escapeHtml(log.Hospital)}</div>
+          <div class="small text-secondary" style="font-size: 0.85rem;"><i class="bi bi-info-circle me-1"></i>รายละเอียด: ${escapeHtml(log.Details)}</div>
+          <div class="text-end" style="font-size: 0.75rem;"><span class="text-muted">ผู้ทำรายการ:</span> <span class="badge bg-light text-dark font-monospace">${escapeHtml(log.User)}</span></div>
+        `;
+        container.appendChild(card);
+      });
+    } catch (err) {
+      container.innerHTML = `<div class="text-center p-4 text-danger">ไม่สามารถโหลดข้อมูลประวัติได้: ${escapeHtml(err.message)}</div>`;
+    }
   }
