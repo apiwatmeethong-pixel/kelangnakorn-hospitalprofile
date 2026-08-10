@@ -1,5 +1,5 @@
 // วาง URL ของ GAS Web App ที่ลงท้ายด้วย /exec ตรงนี้เพียงจุดเดียว
-  const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwJgo1QtiDFm18MQctJD3DQW5yrLT13XVsmPNQIRT_DSh0HxRmK5n084Qv3ER-FW-I/exec';
+  const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyllC_2csmz3XErpleROdYziNQwU-U-OYJujFzQW9D8gGXwFVEnLrWuekrXva8qmhc6/exec';
   const API_TOKEN_KEY = 'hospitalApiToken';
   const API_USER_KEY = 'hospitalCurrentUser';
 
