@@ -1,4 +1,4 @@
-  // วาง URL ของ GAS Web App ที่ลงท้ายด้วย /exec ตรงนี้เพียงจุดเดียว
+// วาง URL ของ GAS Web App ที่ลงท้ายด้วย /exec ตรงนี้เพียงจุดเดียว
   const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwJgo1QtiDFm18MQctJD3DQW5yrLT13XVsmPNQIRT_DSh0HxRmK5n084Qv3ER-FW-I/exec';
   const API_TOKEN_KEY = 'hospitalApiToken';
   const API_USER_KEY = 'hospitalCurrentUser';
@@ -65,6 +65,9 @@
   let currentUser = null; 
   let manageCurrentPage = 1; 
   const managePageSize = 30;
+  // 🎯 เก็บผลสรุปยอดเงิน/ยอดเบิกจ่ายรายเดือนไว้ใช้ซ้ำ (ตารางหลัก + ป๊อปอัปรายละเอียด + ตารางสรุปรายเดือน)
+  let moneyMatrixGlobal = {};
+  let moneyMonthlyData = { hosMonthly: {}, monthTotals: {} };
 
   // 2. โหลดข้อมูลทั้งหมดเมื่อเปิดเว็บ
   document.addEventListener("DOMContentLoaded", async function() {
@@ -190,6 +193,54 @@
 
   const cleanNum = (val) => parseFloat(String(val).replace(/,/g, '')) || 0;
 
+  // 🎯 ชื่อเดือนภาษาไทย และลำดับเดือนตามปีงบประมาณไทย (ตุลาคม -> กันยายน)
+  const THAI_MONTH_NAMES = { 1:'มกราคม', 2:'กุมภาพันธ์', 3:'มีนาคม', 4:'เมษายน', 5:'พฤษภาคม', 6:'มิถุนายน', 7:'กรกฎาคม', 8:'สิงหาคม', 9:'กันยายน', 10:'ตุลาคม', 11:'พฤศจิกายน', 12:'ธันวาคม' };
+  const FISCAL_MONTH_ORDER = [10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+  function parseMonthText_(text) {
+    // รับข้อความเดือนรูปแบบ "M/YYYY" เช่น "10/2025" คืนค่า {month, year} หรือ null หากแปลงไม่ได้
+    if (!text) return null;
+    const parts = String(text).trim().split('/');
+    if (parts.length !== 2) return null;
+    const month = parseInt(parts[0], 10), year = parseInt(parts[1], 10);
+    if (!month || !year || month < 1 || month > 12) return null;
+    return { month, year };
+  }
+
+  function monthValueToText_(monthInputValue) {
+    // แปลงค่าจาก <input type="month"> รูปแบบ "YYYY-MM" ให้เป็น "M/YYYY" (รูปแบบเดียวกับที่ระบบเดิมบันทึกอยู่แล้ว)
+    if (!monthInputValue) return '';
+    const [year, monthNum] = monthInputValue.split('-');
+    return `${parseInt(monthNum, 10)}/${year}`;
+  }
+
+  function monthTextToInputValue_(text) {
+    // แปลง "M/YYYY" กลับเป็นรูปแบบ "YYYY-MM" สำหรับใส่ใน <input type="month">
+    const parsed = parseMonthText_(text);
+    if (!parsed) return '';
+    return `${parsed.year}-${String(parsed.month).padStart(2, '0')}`;
+  }
+
+  function buildMoneyMonthlyMatrix_(data) {
+    // สร้างข้อมูลยอดเบิกจ่ายรายเดือน แยกตามหน่วยบริการ โดยจัดกลุ่มตาม "เลขเดือน" (รวมทุกปีงบประมาณที่มีข้อมูล)
+    let hosMonthly = {}, monthTotals = {};
+    FISCAL_MONTH_ORDER.forEach(m => monthTotals[m] = 0);
+    (data || []).forEach(row => {
+      let hosName = row['Hospital'] || row['ศบส.'], type = row['รายการ'], rawAmount = row['วงเงินทั้งปี'] || row['จำนวนเงิน'] || row['จำนวน'];
+      if (!hosName || !type) return;
+      hosName = hosName.toString().trim();
+      let typeStr = type.toString().trim();
+      if (!typeStr.startsWith('รวมจ่ายเดือน')) return;
+      let parsed = parseMonthText_(typeStr.replace('รวมจ่ายเดือน', '').trim());
+      if (!parsed) return;
+      let amount = rawAmount ? (parseFloat(rawAmount.toString().replace(/,/g, '').replace(/"/g, '')) || 0) : 0;
+      if (!hosMonthly[hosName]) { hosMonthly[hosName] = {}; FISCAL_MONTH_ORDER.forEach(m => hosMonthly[hosName][m] = 0); }
+      hosMonthly[hosName][parsed.month] = (hosMonthly[hosName][parsed.month] || 0) + amount;
+      monthTotals[parsed.month] = (monthTotals[parsed.month] || 0) + amount;
+    });
+    return { hosMonthly, monthTotals };
+  }
+
   // ฟังก์ชันแสดงผลภาพรวม (Dashboard) ฯลฯ ... (ใช้โค้ดเดิมทั้งหมด)
   function renderDashboard(data) {
     if (!data || data.length === 0) return;
@@ -288,6 +339,8 @@
 
   function renderMoneyView() {
     if (!moneyData || moneyData.length === 0) return;
+    // 🎯 คำนวณยอดเบิกจ่ายรายเดือนรายหน่วยบริการ (ใช้กับป๊อปอัปรายละเอียด + ตารางสรุปรายเดือนด้านล่าง)
+    moneyMonthlyData = buildMoneyMonthlyMatrix_(moneyData);
     let moneyMatrix = {}, grandTotalPlan = 0, grandTotalSpent = 0;
     moneyData.forEach(row => {
       let hosName = row['Hospital'] || row['ศบส.'], type = row['รายการ'], rawAmount = row['วงเงินทั้งปี'] || row['จำนวนเงิน'] || row['จำนวน'];
@@ -318,6 +371,8 @@
       });
     }
 
+    moneyMatrixGlobal = moneyMatrix;
+
     const tHead = document.getElementById('money-table-head'), tBody = document.getElementById('money-table-body');
     if (tHead && tBody) {
       tHead.innerHTML = `<tr><th class="text-start bg-light" style="min-width: 180px;">หน่วยบริการ</th><th class="bg-light text-end">เงินบำรุงทั้งปี (บาท)</th><th class="bg-light text-end">เบิกจ่ายสะสม (บาท)</th><th class="bg-light text-end">งบประมาณคงเหลือ (บาท)</th><th class="bg-light text-center" style="width: 150px;">ร้อยละ</th></tr>`;
@@ -325,11 +380,80 @@
       sortedHospitals.forEach(hos => {
         let plan = moneyMatrix[hos].plan, spent = moneyMatrix[hos].spent, remaining = plan - spent, rate = plan > 0 ? (spent / plan) * 100 : 0;
         let badgeColor = rate >= 80 ? 'bg-success' : 'bg-warning text-dark';
-        tBody.innerHTML += `<tr><td class="text-start fw-medium"><i class="bi bi-hospital me-2"></i>${escapeHtml(hos)}</td><td class="text-end">${plan.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td><td class="text-end text-danger">${spent.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td><td class="text-end text-success fw-medium">${remaining.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td><td class="text-center"><span class="badge ${badgeColor} rounded-pill font-monospace" style="font-size: 0.85rem; padding: 0.4em 0.8em;">${rate.toFixed(2)}%</span></td></tr>`;
+        tBody.innerHTML += `<tr><td class="text-start fw-medium money-hos-row" data-hos="${escapeHtml(hos)}" style="cursor:pointer;" title="คลิกเพื่อดูรายละเอียดเบิกจ่ายรายเดือน"><i class="bi bi-hospital me-2"></i>${escapeHtml(hos)}</td><td class="text-end">${plan.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td><td class="text-end text-danger">${spent.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td><td class="text-end text-success fw-medium">${remaining.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td><td class="text-center"><span class="badge ${badgeColor} rounded-pill font-monospace" style="font-size: 0.85rem; padding: 0.4em 0.8em;">${rate.toFixed(2)}%</span></td></tr>`;
       });
       let grandRemaining = grandTotalPlan - grandTotalSpent;
       tBody.innerHTML += `<tr class="table-dark fw-bold"><td class="text-start">รวมทุกศูนย์บริการฯ</td><td class="text-end">${grandTotalPlan.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td><td class="text-end" style="color: #FF8A80;">${grandTotalSpent.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td><td class="text-end" style="color: #6EE7B7;">${grandRemaining.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td><td class="text-center" style="color: #6EE7B7;">${grandRate.toFixed(2)}%</td></tr>`;
+
+      // 🎯 คลิกที่ชื่อหน่วยบริการ เพื่อดูรายละเอียดยอดเบิกจ่ายรายเดือน (เรียงตามปีงบประมาณ ต.ค. -> ก.ย.)
+      tBody.querySelectorAll('.money-hos-row').forEach(td => {
+        td.addEventListener('click', () => showMoneyDetail(td.getAttribute('data-hos')));
+      });
     }
+
+    // 🎯 ตารางสรุปยอดเบิกจ่ายรายเดือน ต่อท้ายตารางสรุปยอดบัญชีรายหน่วยบริการ (แถว = เดือนตามปีงบประมาณ, คอลัมน์ = หน่วยบริการ)
+    renderMoneyMonthlyPivot(sortedHospitals);
+  }
+
+  function showMoneyDetail(hosName) {
+    if (!hosName) return;
+    const monthly = (moneyMonthlyData.hosMonthly && moneyMonthlyData.hosMonthly[hosName]) || {};
+    const planSpent = moneyMatrixGlobal[hosName] || { plan: 0, spent: 0 };
+    const titleEl = document.getElementById('moneyDetailModalLabel');
+    const bodyEl = document.getElementById('moneyDetailModalBody');
+    if (titleEl) titleEl.innerText = 'รายละเอียดเบิกจ่ายรายเดือน: ' + hosName;
+    if (bodyEl) {
+      let rowsHTML = '';
+      let totalSpentInMonths = 0;
+      FISCAL_MONTH_ORDER.forEach(m => {
+        let amt = monthly[m] || 0;
+        totalSpentInMonths += amt;
+        rowsHTML += `<tr><td class="text-start">${THAI_MONTH_NAMES[m]}</td><td class="text-end">${amt ? amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td></tr>`;
+      });
+      bodyEl.innerHTML = `
+        <div class="d-flex justify-content-between mb-3 flex-wrap gap-2">
+          <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">เงินบำรุงทั้งปี: ${planSpent.plan.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท</span>
+          <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2">เบิกจ่ายสะสม: ${planSpent.spent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle mb-0">
+            <thead class="table-light"><tr><th class="text-start">เดือน (เรียงตามปีงบประมาณ)</th><th class="text-end">จำนวนเงินที่เบิกจ่าย (บาท)</th></tr></thead>
+            <tbody>${rowsHTML}</tbody>
+            <tfoot><tr class="table-light fw-bold"><td class="text-start">รวมยอดเบิกจ่ายรายเดือน</td><td class="text-end">${totalSpentInMonths.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr></tfoot>
+          </table>
+        </div>`;
+    }
+    const modalEl = document.getElementById('moneyDetailModal');
+    if (modalEl && window.bootstrap) { new bootstrap.Modal(modalEl).show(); }
+  }
+
+  function renderMoneyMonthlyPivot(sortedHospitals) {
+    const thead = document.getElementById('money-pivot-head'), tbody = document.getElementById('money-pivot-body');
+    if (!thead || !tbody) return;
+    if (!sortedHospitals || sortedHospitals.length === 0) { thead.innerHTML = ''; tbody.innerHTML = '<tr><td class="text-center text-muted py-3">ไม่มีข้อมูล</td></tr>'; return; }
+
+    let headHTML = '<tr><th class="text-start bg-light" style="min-width: 150px;">เดือน (ปีงบประมาณ)</th>';
+    sortedHospitals.forEach(hos => headHTML += `<th class="bg-light text-end" style="min-width: 130px;">${escapeHtml(hos)}</th>`);
+    headHTML += '<th class="bg-dark text-white text-end" style="min-width: 130px;">รวมทุกหน่วย</th></tr>';
+    thead.innerHTML = headHTML;
+
+    let hosColumnTotals = {}; sortedHospitals.forEach(h => hosColumnTotals[h] = 0);
+    let grandTotal = 0, bodyHTML = '';
+    FISCAL_MONTH_ORDER.forEach(m => {
+      bodyHTML += `<tr><td class="text-start fw-medium">${THAI_MONTH_NAMES[m]}</td>`;
+      let rowTotal = 0;
+      sortedHospitals.forEach(hos => {
+        let amt = (moneyMonthlyData.hosMonthly[hos] && moneyMonthlyData.hosMonthly[hos][m]) || 0;
+        rowTotal += amt; hosColumnTotals[hos] += amt;
+        bodyHTML += `<td class="text-end">${amt ? amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>`;
+      });
+      grandTotal += rowTotal;
+      bodyHTML += `<td class="text-end fw-bold bg-light">${rowTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>`;
+    });
+    bodyHTML += '<tr class="table-dark fw-bold"><td class="text-start">รวมทั้งปีงบประมาณ</td>';
+    sortedHospitals.forEach(hos => { bodyHTML += `<td class="text-end">${hosColumnTotals[hos].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>`; });
+    bodyHTML += `<td class="text-end" style="color:#6EE7B7;">${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td></tr>`;
+    tbody.innerHTML = bodyHTML;
   }
 
   function updateNcdView() {
@@ -640,11 +764,11 @@
     const startIndex = (manageCurrentPage - 1) * managePageSize; const endIndex = Math.min(startIndex + managePageSize, totalRecords);
     if(infoBox) { infoBox.innerText = `กำลังแสดงข้อมูลลำดับที่ ${startIndex + 1} ถึง ${endIndex} จากทั้งหมด ${totalRecords} รายการ (หน้า ${manageCurrentPage}/${totalPages})`; }
     
-    const headers = Object.keys(rawData[0]).filter(h => h !== '_rowIndex'); let headerRow = '<tr>'; headers.forEach(h => headerRow += `<th>${escapeHtml(h)}</th>`); headerRow += '<th style="width: 100px;">จัดการ</th></tr>'; thead.innerHTML = headerRow;
+    const headers = Object.keys(rawData[0]).filter(h => h !== '_rowIndex'); let headerRow = '<tr>'; headers.forEach(h => headerRow += `<th>${escapeHtml(h)}</th>`); headerRow += '<th style="width: 160px;">จัดการ</th></tr>'; thead.innerHTML = headerRow;
     for (let i = startIndex; i < endIndex; i++) {
       let item = filteredData[i]; let row = item.content; let actualRowIndex = item.actualRowIndex;
       let tr = document.createElement('tr'); let tdHTML = ''; headers.forEach(h => tdHTML += `<td class="text-center">${escapeHtml(row[h] || '')}</td>`);
-      tdHTML += `<td class="text-center"><button class="btn btn-sm btn-outline-danger rounded-pill" onclick="deleteRecord('${sheetName}', ${actualRowIndex})"><i class="bi bi-trash3-fill"></i> ลบ</button></td>`;
+      tdHTML += `<td class="text-center"><div class="d-flex gap-1 justify-content-center flex-wrap"><button class="btn btn-sm btn-outline-primary rounded-pill" onclick="editRecord('${sheetName}', ${actualRowIndex})"><i class="bi bi-pencil-square"></i> แก้ไข</button><button class="btn btn-sm btn-outline-danger rounded-pill" onclick="deleteRecord('${sheetName}', ${actualRowIndex})"><i class="bi bi-trash3-fill"></i> ลบ</button></div></td>`;
       tr.innerHTML = tdHTML; tbody.appendChild(tr);
     }
     
@@ -672,6 +796,101 @@
       renderMoneyView(); updateNcdView(); updateCdView(); renderManageTable();
     } catch (err) {
       document.body.style.cursor = 'default'; alert(err.message);
+    }
+  }
+
+  // 🎯 เปิดฟอร์มแก้ไขข้อมูลรายแถว (สำหรับกรณีกรอกข้อมูลผิดพลาด) — ผู้ใช้ทั่วไปแก้ไขได้เฉพาะข้อมูลของหน่วยบริการตนเอง (ตรวจสอบซ้ำที่ฝั่งเซิร์ฟเวอร์เสมอ)
+  function editRecord(sheetName, rowIndex) {
+    if (!currentUser) { alert("กรุณาเข้าสู่ระบบก่อนดำเนินการ"); return; }
+    let rawData = sheetName === 'money' ? moneyData : (sheetName === 'ncd' ? ncdData : cdData);
+    let row = (rawData || []).find(r => Number(r._rowIndex) === Number(rowIndex));
+    if (!row) { alert("ไม่พบข้อมูลแถวนี้ อาจถูกลบหรือแก้ไขไปแล้ว กรุณารีเฟรชหน้าจอ"); return; }
+
+    const sheetNameEl = document.getElementById('edit-sheet-name'), rowIndexEl = document.getElementById('edit-row-index');
+    const labelItem = document.getElementById('edit-label-item'), groupType = document.getElementById('edit-group-ncd-type');
+    const inputItem = document.getElementById('edit-item'), inputType = document.getElementById('edit-type');
+    const inputMonth = document.getElementById('edit-month'), inputAmount = document.getElementById('edit-amount');
+    if (!sheetNameEl || !rowIndexEl || !inputItem || !inputMonth || !inputAmount) return;
+
+    sheetNameEl.value = sheetName; rowIndexEl.value = rowIndex;
+
+    inputItem.innerHTML = '<option value="" selected disabled>-- เลือกรายการ --</option>';
+    settingsData.filter(r => r['ประเภท'] === sheetName).forEach(r => { if (r['รายการ']) inputItem.appendChild(new Option(String(r['รายการ']), String(r['รายการ']))); });
+
+    let currentItemName = '', currentMonthText = '', currentAmount = 0, currentType = '';
+
+    if (sheetName === 'money') {
+      if (labelItem) labelItem.innerText = 'รายการเบิกจ่าย';
+      if (groupType) groupType.style.display = 'none'; if (inputType) inputType.required = false;
+      let itemRaw = String(row['รายการ'] || '');
+      if (itemRaw.startsWith('รวมจ่ายเดือน')) { currentItemName = 'รวมจ่ายเดือน'; currentMonthText = itemRaw.replace('รวมจ่ายเดือน', '').trim(); }
+      else { currentItemName = itemRaw; }
+      currentAmount = row['วงเงินทั้งปี'] || row['จำนวนเงิน'] || row['จำนวน'] || 0;
+    } else if (sheetName === 'ncd') {
+      if (labelItem) labelItem.innerText = 'กลุ่มโรคเรื้อรัง (NCDs)';
+      if (groupType) groupType.style.display = 'block'; if (inputType) inputType.required = true;
+      currentItemName = row['รายการหลัก'] || ''; currentType = row['รายการย่อย'] || '';
+      currentMonthText = row['เดือน'] || ''; currentAmount = row['จำนวน'] || 0;
+    } else {
+      if (labelItem) labelItem.innerText = 'โรคติดต่อ (CD)';
+      if (groupType) groupType.style.display = 'none'; if (inputType) inputType.required = false;
+      currentItemName = row['โรคติดต่อ'] || ''; currentMonthText = row['เดือน'] || ''; currentAmount = row['จำนวน'] || 0;
+    }
+
+    inputItem.value = currentItemName;
+    if (inputItem.value !== currentItemName) { inputItem.appendChild(new Option(currentItemName, currentItemName, true, true)); }
+    if (inputType) inputType.value = currentType;
+    inputMonth.value = monthTextToInputValue_(currentMonthText) || new Date().toISOString().slice(0, 7);
+    inputAmount.value = parseFloat(String(currentAmount).replace(/,/g, '')) || 0;
+
+    const alertBox = document.getElementById('edit-alert-message'); if (alertBox) alertBox.style.display = 'none';
+    const form = document.getElementById('editRecordForm'); if (form) form.classList.remove('was-validated');
+
+    const modalEl = document.getElementById('editRecordModal');
+    if (modalEl && window.bootstrap) { new bootstrap.Modal(modalEl).show(); }
+  }
+
+  async function submitEditRecord(event) {
+    event.preventDefault();
+    const form = document.getElementById('editRecordForm');
+    if (!form) return;
+    if (!form.checkValidity()) { event.stopPropagation(); form.classList.add('was-validated'); return; }
+
+    const btn = document.getElementById('btn-save-edit');
+    const alertBox = document.getElementById('edit-alert-message');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> กำลังบันทึก...'; }
+    if (alertBox) alertBox.style.display = 'none';
+
+    const formData = {
+      sheetName: document.getElementById('edit-sheet-name').value,
+      rowIndex: parseInt(document.getElementById('edit-row-index').value, 10),
+      itemName: document.getElementById('edit-item').value,
+      ncdType: document.getElementById('edit-type') ? document.getElementById('edit-type').value : '',
+      recordMonth: monthValueToText_(document.getElementById('edit-month').value),
+      amount: parseFloat(document.getElementById('edit-amount').value) || 0
+    };
+
+    try {
+      const res = await apiRequest('updateRecord', { data: formData });
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save2 me-2"></i> บันทึกการแก้ไข'; }
+      if (alertBox) {
+        alertBox.style.display = 'block';
+        if (res.success) {
+          alertBox.className = 'alert alert-success mt-3'; alertBox.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> ${escapeHtml(res.message)}`;
+          await loadAllDatabase();
+          renderMoneyView(); updateNcdView(); updateCdView(); renderManageTable();
+          setTimeout(() => {
+            const modalEl = document.getElementById('editRecordModal');
+            const inst = window.bootstrap && bootstrap.Modal.getInstance(modalEl);
+            if (inst) inst.hide();
+          }, 700);
+        } else {
+          alertBox.className = 'alert alert-danger mt-3'; alertBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i> ${escapeHtml(res.message)}`;
+        }
+      }
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save2 me-2"></i> บันทึกการแก้ไข'; }
+      if (alertBox) { alertBox.className = 'alert alert-danger mt-3'; alertBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i> ${escapeHtml(err.message)}`; alertBox.style.display = 'block'; }
     }
   }
 
