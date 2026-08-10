@@ -255,6 +255,7 @@
       <div class="data-card mt-4 border-top border-4 border-info shadow-sm bg-white p-0">
         <div class="p-3 border-bottom bg-light">
           <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-table me-2"></i>สรุปยอดบัญชีรายหน่วยบริการ</h6>
+          <small class="text-muted"><i class="bi bi-info-circle me-1"></i>คลิกที่ชื่อหน่วยบริการเพื่อดูรายละเอียดยอดเบิกจ่ายรายเดือน</small>
         </div>
         <div class="table-responsive p-3">
           <table class="table table-bordered table-hover align-middle text-center mb-0" style="font-size: 0.9rem; min-width: 800px;">
@@ -265,7 +266,37 @@
           </table>
         </div>
       </div>
+
+      <div class="data-card mt-4 border-top border-4 border-primary shadow-sm bg-white p-0">
+        <div class="p-3 border-bottom bg-light">
+          <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-calendar3-range me-2"></i>สรุปยอดเบิกจ่ายรายเดือน แยกรายหน่วยบริการ (ปีงบประมาณ ต.ค. - ก.ย.)</h6>
+        </div>
+        <div class="table-responsive p-3">
+          <table class="table table-bordered table-hover align-middle text-center mb-0" style="font-size: 0.85rem; min-width: 900px;">
+            <thead id="money-pivot-head">
+              </thead>
+            <tbody id="money-pivot-body">
+              </tbody>
+          </table>
+        </div>
+      </div>
     </section>
+
+    <!-- 🎯 Modal รายละเอียดยอดเบิกจ่ายรายเดือนของหน่วยบริการ -->
+    <div class="modal fade" id="moneyDetailModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4">
+          <div class="modal-header">
+            <h5 class="modal-title fw-bold" id="moneyDetailModalLabel"><i class="bi bi-cash-stack me-2"></i>รายละเอียดเบิกจ่ายรายเดือน</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="moneyDetailModalBody"></div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">ปิด</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <section id="view-ncd" class="view-section">
       <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
@@ -625,7 +656,7 @@
       <div class="data-card border-top border-4 border-warning">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-table me-2"></i> ข้อมูลในระบบ</h6>
-          <small class="text-danger">* หากบันทึกผิด ให้ลบรายการนั้นทิ้ง แล้วกรอกเข้าไปใหม่</small>
+          <small class="text-success">* หากบันทึกผิด กดปุ่ม "แก้ไข" เพื่อแก้ไขได้ทันที (แก้ไขได้เฉพาะข้อมูลของหน่วยบริการตนเองเท่านั้น) หรือจะลบแล้วกรอกใหม่ก็ได้</small>
         </div>
         
         <div class="table-responsive">
@@ -646,6 +677,58 @@
         </div>
       </div>
     </section>
+
+    <!-- 🎯 Modal แก้ไขข้อมูลรายแถว (ผู้ใช้แก้ไขได้เฉพาะข้อมูลของหน่วยบริการตนเอง ตรวจสอบสิทธิ์ซ้ำที่ฝั่งเซิร์ฟเวอร์เสมอ) -->
+    <div class="modal fade" id="editRecordModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4">
+          <form id="editRecordForm" class="needs-validation" novalidate onsubmit="submitEditRecord(event)">
+            <div class="modal-header">
+              <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>แก้ไขข้อมูล</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <input type="hidden" id="edit-sheet-name">
+              <input type="hidden" id="edit-row-index">
+
+              <div class="mb-3">
+                <label class="form-label fw-bold text-muted small" id="edit-label-item">รายการ</label>
+                <select class="form-select border-0 shadow-sm bg-light" id="edit-item" required></select>
+                <div class="invalid-feedback">กรุณาเลือกรายการ</div>
+              </div>
+
+              <div class="mb-3" id="edit-group-ncd-type" style="display:none;">
+                <label class="form-label fw-bold text-muted small">ประเภทผู้ป่วย</label>
+                <select class="form-select border-0 shadow-sm bg-light" id="edit-type">
+                  <option value="" disabled>-- เลือกประเภท --</option>
+                  <option value="รายเก่า">รายเก่า (สะสม)</option>
+                  <option value="รายใหม่">รายใหม่</option>
+                </select>
+                <div class="invalid-feedback">กรุณาเลือกประเภทผู้ป่วย (รายเก่า/รายใหม่)</div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-bold text-muted small">ประจำเดือน (เดือน/ปี)</label>
+                <input type="month" class="form-control border-0 shadow-sm bg-light" id="edit-month" required>
+                <div class="invalid-feedback">กรุณาระบุเดือนและปีของข้อมูล</div>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label fw-bold text-muted small">จำนวน (ยอดเงิน / จำนวนคน)</label>
+                <input type="number" class="form-control border-0 shadow-sm bg-light" id="edit-amount" min="0" step="any" required>
+                <div class="invalid-feedback">กรุณากรอกตัวเลขที่มากกว่าหรือเท่ากับ 0</div>
+              </div>
+
+              <div id="edit-alert-message" class="alert mt-3" style="display:none;" role="alert"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">ยกเลิก</button>
+              <button type="submit" id="btn-save-edit" class="btn btn-primary rounded-pill px-4"><i class="bi bi-save2 me-2"></i> บันทึกการแก้ไข</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
 
     <footer class="footer-copyright text-center">
       © 2026 Hospital Profile Ver.2.2 | Design &amp; Developed by Apiwat Meethong
